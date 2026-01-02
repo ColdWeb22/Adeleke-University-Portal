@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     User, Shield, Bell, Eye, Link, LogOut, Camera, CheckCircle,
-    Calendar, Mail, Lock, Sliders
+    Mail, Lock, Sliders
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -19,7 +19,6 @@ interface StudentData {
 export default function StudentProfile() {
     const [activeTab, setActiveTab] = useState('Personal Info');
     const { user } = useAuth();
-    const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [studentData, setStudentData] = useState<StudentData>({
         matric_number: '',
@@ -30,14 +29,8 @@ export default function StudentProfile() {
         phone_number: ''
     });
 
-    useEffect(() => {
-        loadStudentData();
-    }, [user]);
-
-    const loadStudentData = async () => {
+    const loadStudentData = React.useCallback(async () => {
         if (!user) return;
-        
-        setLoading(true);
         try {
             const { data, error } = await supabase
                 .from('students')
@@ -52,10 +45,12 @@ export default function StudentProfile() {
             }
         } catch (error) {
             console.error('Error:', error);
-        } finally {
-            setLoading(false);
         }
-    };
+    }, [user]);
+
+    useEffect(() => {
+        loadStudentData();
+    }, [loadStudentData]);
 
     const handleSave = async () => {
         if (!user) return;
@@ -68,14 +63,14 @@ export default function StudentProfile() {
                     user_id: user.id,
                     ...studentData,
                     status: 'active'
-                });
+                } as any);
 
             if (error) throw error;
             
             alert('Profile updated successfully!');
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error saving:', error);
-            alert('Error saving profile: ' + error.message);
+            alert('Error saving profile: ' + (error as Error).message);
         } finally {
             setSaving(false);
         }

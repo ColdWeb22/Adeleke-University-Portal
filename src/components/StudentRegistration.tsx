@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
     LayoutGrid, BookOpen, Calendar, GraduationCap,
     Settings, LogOut, Search, Plus, X,
-    AlertCircle, CheckCircle2, Info, Clock, Users, Zap
+    AlertCircle, CheckCircle2, Info, Zap
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -32,12 +32,7 @@ export default function StudentRegistration() {
     const MAX_UNITS = 24;
     const currentUnits = selectedCourses.reduce((acc, curr) => acc + curr.units, 0);
 
-    useEffect(() => {
-        loadCourses();
-        loadEnrolledCourses();
-    }, [user]);
-
-    const loadCourses = async () => {
+    const loadCourses = React.useCallback(async () => {
         setLoading(true);
         try {
             const { data, error } = await supabase
@@ -52,9 +47,9 @@ export default function StudentRegistration() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const loadEnrolledCourses = async () => {
+    const loadEnrolledCourses = React.useCallback(async () => {
         if (!user) return;
 
         try {
@@ -76,14 +71,19 @@ export default function StudentRegistration() {
 
             if (enrollments) {
                 const enrolled = enrollments
-                    .map(e => (e as any).courses)
+                    .map(e => (e as { courses: Course }).courses)
                     .filter(Boolean);
                 setSelectedCourses(enrolled);
             }
         } catch (error) {
             console.error('Error loading enrolled courses:', error);
         }
-    };
+    }, [user]);
+
+    useEffect(() => {
+        loadCourses();
+        loadEnrolledCourses();
+    }, [loadCourses, loadEnrolledCourses]);
 
     const handleEnrollment = async () => {
         if (!user || selectedCourses.length === 0) return;
@@ -106,23 +106,24 @@ export default function StudentRegistration() {
             const enrollments = selectedCourses.map(course => ({
                 student_id: studentData.id,
                 course_id: course.id,
-                semester: 'Spring 2026',
+                semester: 'first',
+                academic_year: '2025/2026',
                 status: 'enrolled'
             }));
 
             // Insert or update enrollments
             const { error } = await supabase
                 .from('enrollments')
-                .upsert(enrollments, {
-                    onConflict: 'student_id,course_id,semester'
+                .upsert(enrollments as any, {
+                    onConflict: 'student_id,course_id,academic_year,semester'
                 });
 
             if (error) throw error;
 
             alert(`Successfully enrolled in ${selectedCourses.length} course(s)!`);
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error enrolling:', error);
-            alert('Error enrolling in courses: ' + error.message);
+            alert('Error enrolling in courses: ' + (error as Error).message);
         } finally {
             setEnrolling(false);
         }
