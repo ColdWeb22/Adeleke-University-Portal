@@ -38,7 +38,6 @@ interface StudentData {
 export default function StudentDashboard() {
     const { profile } = useAuth();
     const [studentData, setStudentData] = useState<StudentData | null>(null);
-    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchStudentData = async () => {
@@ -55,8 +54,6 @@ export default function StudentDashboard() {
                 setStudentData(data);
             } catch (error) {
                 console.error('Error fetching student data:', error);
-            } finally {
-                setLoading(false);
             }
         };
 
