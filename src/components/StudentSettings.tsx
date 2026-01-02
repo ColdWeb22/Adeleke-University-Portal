@@ -171,7 +171,7 @@ function SidebarItem({ icon, label, active = false, href = '#' }: { icon: React.
     )
 }
 
-function SettingsTab({ label, icon: Icon, active, onClick }: any) {
+function SettingsTab({ label, icon: Icon, active, onClick }: { label: string; icon: React.ComponentType<{ size: number }>; active: boolean; onClick: () => void }) {
     return (
         <button
             onClick={onClick}
@@ -183,7 +183,7 @@ function SettingsTab({ label, icon: Icon, active, onClick }: any) {
     )
 }
 
-function InputGroup({ label, value, disabled }: any) {
+function InputGroup({ label, value, disabled }: { label: string; value: string; disabled?: boolean }) {
     return (
         <div className="space-y-1.5">
             <label className="text-xs font-semibold text-gray-500">{label}</label>
@@ -198,7 +198,7 @@ function InputGroup({ label, value, disabled }: any) {
     )
 }
 
-function ToggleRow({ label, desc, checked, onChange }: any) {
+function ToggleRow({ label, desc, checked, onChange }: { label: string; desc: string; checked: boolean; onChange: () => void }) {
     return (
         <div className="flex items-center justify-between">
             <div>
@@ -207,6 +207,7 @@ function ToggleRow({ label, desc, checked, onChange }: any) {
             </div>
             <button
                 onClick={onChange}
+                aria-label={`Toggle ${label}`}
                 className={`w-12 h-6 rounded-full p-1 transition-colors ${checked ? 'bg-red-600' : 'bg-gray-300'}`}
             >
                 <div className={`w-4 h-4 rounded-full bg-white transition-transform shadow-sm ${checked ? 'translate-x-6' : 'translate-x-0'}`}></div>

@@ -182,6 +182,7 @@ export default function StudentRegistration() {
                                 <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
                                     <div
                                         className={`h-full rounded-full transition-all duration-500 ease-out ${currentUnits >= MAX_UNITS ? 'bg-red-600' : 'bg-gradient-to-r from-red-500 to-orange-500'}`}
+                                        data-progress={Math.min((currentUnits / MAX_UNITS) * 100, 100)}
                                         style={{ width: `${Math.min((currentUnits / MAX_UNITS) * 100, 100)}%` }}
                                     ></div>
                                 </div>

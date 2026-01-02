@@ -51,19 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setSession(session);
             setUser(session?.user ?? null);
             
-            // Handle email confirmation
-            if (event === 'SIGNED_IN' && session?.user) {
+            if (session?.user) {
                 await fetchProfile(session.user.id);
-                
-                // Redirect to appropriate dashboard after email confirmation
-                const userRole = session.user.user_metadata?.role;
-                if (userRole === 'lecturer') {
-                    window.location.href = '/lecturer/dashboard';
-                } else {
-                    window.location.href = '/dashboard';
-                }
-            } else if (session?.user) {
-                fetchProfile(session.user.id);
             } else {
                 setProfile(null);
                 setLoading(false);
@@ -75,6 +64,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const fetchProfile = async (userId: string) => {
         try {
+            // Small delay to ensure database trigger has completed
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             const { data, error } = await supabase
                 .from('profiles')
                 .select('*')
@@ -84,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (error) throw error;
             
             // If no profile exists, try to create one from the user's auth metadata
-            if (!data && user) {
+            if (!data) {
                 const { data: { user: authUser } } = await supabase.auth.getUser();
                 if (authUser) {
                     const newProfile = {

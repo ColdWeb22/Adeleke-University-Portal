@@ -169,7 +169,7 @@ export default function StudentTimetable() {
                                     <div
                                         key={cls.id}
                                         className={`absolute w-[15.5%] p-3 rounded-2xl border ${cls.color} ${cls.bgVal} backdrop-blur-sm z-10 hover:brightness-95 hover:scale-[1.02] transition-all cursor-pointer shadow-sm`}
-                                        style={{ top: `${top}px`, left: `${left}%`, height: `${height}px` }}
+                                        style={{ ['--top' as string]: `${top}px`, ['--left' as string]: `${left}%`, ['--height' as string]: `${height}px`, top: `var(--top)`, left: `var(--left)`, height: `var(--height)` } as React.CSSProperties}
                                     >
                                         <div className="flex justify-between items-start">
                                             <span className="text-[10px] font-bold uppercase">{cls.courseCode}</span>
