@@ -58,7 +58,7 @@ export default function StudentRegistration() {
                 .from('students')
                 .select('id')
                 .eq('user_id', user.id)
-                .single() as { data: { id: string } | null; error: any };
+                .single() as { data: { id: string } | null; error: unknown };
 
             if (studentError || !studentData) return;
 
@@ -95,7 +95,7 @@ export default function StudentRegistration() {
                 .from('students')
                 .select('id')
                 .eq('user_id', user.id)
-                .single() as { data: { id: string } | null; error: any };
+                .single() as { data: { id: string } | null; error: unknown };
 
             if (studentError || !studentData) {
                 alert('Please complete your profile first in the Profile section.');
@@ -114,7 +114,13 @@ export default function StudentRegistration() {
             // Insert or update enrollments
             const { error } = await supabase
                 .from('enrollments')
-                .upsert(enrollments as any, {
+                .upsert(enrollments as Array<{
+                    student_id: string;
+                    course_id: string;
+                    semester: string;
+                    academic_year: string;
+                    status: string;
+                }>, {
                     onConflict: 'student_id,course_id,academic_year,semester'
                 });
 
