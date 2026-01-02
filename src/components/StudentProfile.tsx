@@ -1,12 +1,89 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     User, Shield, Bell, Eye, Link, LogOut, Camera, CheckCircle,
     Calendar, Mail, Lock, Sliders
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+
+interface StudentData {
+    matric_number: string;
+    department: string;
+    level: number;
+    date_of_birth: string;
+    address: string;
+    phone_number: string;
+}
 
 export default function StudentProfile() {
     const [activeTab, setActiveTab] = useState('Personal Info');
+    const { user } = useAuth();
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [studentData, setStudentData] = useState<StudentData>({
+        matric_number: '',
+        department: '',
+        level: 100,
+        date_of_birth: '',
+        address: '',
+        phone_number: ''
+    });
+
+    useEffect(() => {
+        loadStudentData();
+    }, [user]);
+
+    const loadStudentData = async () => {
+        if (!user) return;
+        
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('students')
+                .select('matric_number, department, level, date_of_birth, address, phone_number')
+                .eq('user_id', user.id)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                console.error('Error loading student data:', error);
+            } else if (data) {
+                setStudentData(data);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!user) return;
+
+        setSaving(true);
+        try {
+            const { error } = await supabase
+                .from('students')
+                .upsert({
+                    user_id: user.id,
+                    ...studentData,
+                    status: 'active'
+                });
+
+            if (error) throw error;
+            
+            alert('Profile updated successfully!');
+        } catch (error: any) {
+            console.error('Error saving:', error);
+            alert('Error saving profile: ' + error.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleInputChange = (field: keyof StudentData, value: string | number) => {
+        setStudentData(prev => ({ ...prev, [field]: value }));
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900 font-[sans-serif] flex">
@@ -116,35 +193,73 @@ export default function StudentProfile() {
 
                     {/* Left Column (Forms) */}
                     <div className="xl:col-span-2 space-y-6">
-                        {/* Basic Details */}
+                        {/* Academic Details */}
                         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
                             <div className="flex items-center gap-3 mb-6">
                                 <User className="text-red-600" size={20} />
-                                <h3 className="font-bold text-lg text-gray-900">Basic Details</h3>
+                                <h3 className="font-bold text-lg text-gray-900">Academic Details</h3>
                             </div>
 
                             <div className="grid grid-cols-2 gap-6 mb-6">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">First Name</label>
-                                    <input type="text" defaultValue="Alex" aria-label="First Name" className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:border-red-600 transition-colors" />
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Matric Number</label>
+                                    <input 
+                                        type="text" 
+                                        value={studentData.matric_number} 
+                                        onChange={(e) => handleInputChange('matric_number', e.target.value)}
+                                        placeholder="e.g., AU/CSC/23/001"
+                                        aria-label="Matric Number" 
+                                        className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:border-red-600 transition-colors" 
+                                    />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Last Name</label>
-                                    <input type="text" defaultValue="Rivera" aria-label="Last Name" className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:border-red-600 transition-colors" />
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Department</label>
+                                    <select 
+                                        value={studentData.department}
+                                        onChange={(e) => handleInputChange('department', e.target.value)}
+                                        aria-label="Department"
+                                        className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:border-red-600 transition-colors"
+                                    >
+                                        <option value="">Select Department</option>
+                                        <option value="Computer Science">Computer Science</option>
+                                        <option value="Mathematics">Mathematics</option>
+                                        <option value="Physics">Physics</option>
+                                        <option value="Chemistry">Chemistry</option>
+                                        <option value="Biology">Biology</option>
+                                        <option value="Engineering">Engineering</option>
+                                        <option value="Business Administration">Business Administration</option>
+                                        <option value="Law">Law</option>
+                                    </select>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Date of Birth</label>
-                                    <div className="relative">
-                                        <input type="text" defaultValue="January 15, 2003" aria-label="Date of Birth" className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:border-red-600 transition-colors" />
-                                        <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                    </div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Current Level</label>
+                                    <select 
+                                        value={studentData.level}
+                                        onChange={(e) => handleInputChange('level', parseInt(e.target.value))}
+                                        aria-label="Current Level"
+                                        className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:border-red-600 transition-colors"
+                                    >
+                                        <option value={100}>100 Level</option>
+                                        <option value={200}>200 Level</option>
+                                        <option value={300}>300 Level</option>
+                                        <option value={400}>400 Level</option>
+                                        <option value={500}>500 Level</option>
+                                    </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Pronouns</label>
-                                    <input type="text" defaultValue="He/Him" aria-label="Pronouns" className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:border-red-600 transition-colors" />
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Date of Birth</label>
+                                    <div className="relative">
+                                        <input 
+                                            type="date" 
+                                            value={studentData.date_of_birth}
+                                            onChange={(e) => handleInputChange('date_of_birth', e.target.value)}
+                                            aria-label="Date of Birth" 
+                                            className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:border-red-600 transition-colors" 
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -159,7 +274,7 @@ export default function StudentProfile() {
                             <div className="mb-6">
                                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">University Email</label>
                                 <div className="flex gap-2">
-                                    <input type="text" defaultValue="alex.rivera@adeleke.edu" disabled aria-label="University Email" className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-gray-500 cursor-not-allowed" />
+                                    <input type="text" value={user?.email || ''} disabled aria-label="University Email" className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-gray-500 cursor-not-allowed" />
                                     <div className="bg-green-50 border border-green-200 px-3 rounded-lg flex items-center justify-center">
                                         <CheckCircle size={18} className="text-green-600" />
                                     </div>
@@ -168,19 +283,26 @@ export default function StudentProfile() {
 
                             <div className="grid grid-cols-2 gap-6 mb-6">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Personal Email</label>
-                                    <input type="text" defaultValue="alex.r@gmail.com" aria-label="Personal Email" className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:border-red-600 transition-colors" />
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Phone Number</label>
+                                    <input 
+                                        type="tel" 
+                                        value={studentData.phone_number}
+                                        onChange={(e) => handleInputChange('phone_number', e.target.value)}
+                                        placeholder="+234 800 000 0000"
+                                        aria-label="Phone Number" 
+                                        className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:border-red-600 transition-colors" 
+                                    />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Phone Number</label>
-                                    <input type="text" defaultValue="+1 (555) 012-3456" aria-label="Phone Number" className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:border-red-600 transition-colors" />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Campus Address</label>
-                                <div className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 flex justify-between items-center">
-                                    <span>North Quad Dorms, Building B, Room 304</span>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Address</label>
+                                    <input 
+                                        type="text" 
+                                        value={studentData.address}
+                                        onChange={(e) => handleInputChange('address', e.target.value)}
+                                        placeholder="Your address"
+                                        aria-label="Address" 
+                                        className="w-full bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-900 focus:outline-none focus:border-red-600 transition-colors" 
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -248,14 +370,22 @@ export default function StudentProfile() {
 
                 {/* Floating Footer Action */}
                 <div className="fixed bottom-8 right-8 z-20 flex items-center gap-4 px-6 py-3 bg-white border border-gray-200 rounded-xl shadow-2xl flex-row-reverse animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <button className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-lg shadow-red-900/20 transition-all">
-                        Save Changes
+                    <button 
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-lg shadow-red-900/20 transition-all"
+                    >
+                        {saving ? 'Saving...' : 'Save Changes'}
                     </button>
-                    <button className="text-gray-500 hover:text-gray-900 text-sm font-medium mr-4">
+                    <button 
+                        onClick={loadStudentData}
+                        disabled={saving}
+                        className="text-gray-500 hover:text-gray-900 text-sm font-medium mr-4"
+                    >
                         Reset
                     </button>
                     <div className="h-6 w-px bg-gray-200 mx-2"></div>
-                    <span className="text-gray-500 text-sm">Unsaved changes</span>
+                    <span className="text-gray-500 text-sm">Update your profile</span>
                 </div>
 
             </main>

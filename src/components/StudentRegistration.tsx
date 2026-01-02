@@ -1,42 +1,136 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     LayoutGrid, BookOpen, Calendar, GraduationCap,
     Settings, LogOut, Search, Plus, X,
     AlertCircle, CheckCircle2, Info, Clock, Users, Zap
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 // Interfaces
 interface Course {
+    id: string;
     code: string;
     title: string;
     units: number;
-    lecturer: string;
-    time: string;
-    seats: number;
-    description: string;
+    lecturer_id: string | null;
+    department: string;
+    level: number;
+    semester: string;
 }
-
-const courseCatalog: Course[] = [
-    { code: 'CSC 201', title: 'Data Structures & Algorithms', units: 3, lecturer: 'Dr. Wilson', time: 'Mon/Wed 9:00 AM', seats: 45, description: 'Fundamental data structures and algorithms analysis.' },
-    { code: 'CSC 202', title: 'Digital Logic Design', units: 3, lecturer: 'Prof. Adebayo', time: 'Tue/Thu 11:00 AM', seats: 30, description: 'Introduction to digital, boolean logic and circuits.' },
-    { code: 'MTH 201', title: 'Linear Algebra', units: 2, lecturer: 'Dr. Johnson', time: 'Fri 10:00 AM', seats: 60, description: 'Vector spaces, matrices, and linear transformations.' },
-    { code: 'GNS 101', title: 'Use of Library', units: 1, lecturer: 'Mrs. Okon', time: 'Wed 2:00 PM', seats: 100, description: 'Library resources and research methods.' },
-    { code: 'CSC 305', title: 'Operating Systems', units: 3, lecturer: 'Dr. Smith', time: 'Mon 2:00 PM', seats: 40, description: 'OS concepts, processes, and memory management.' },
-    { code: 'PHY 201', title: 'General Physics III', units: 3, lecturer: 'Prof. Okeke', time: 'Tue 8:00 AM', seats: 50, description: 'Electromagnetism and optics.' },
-];
 
 export default function StudentRegistration() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCourses, setSelectedCourses] = useState<Course[]>([]);
+    const [courseCatalog, setCourseCatalog] = useState<Course[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [enrolling, setEnrolling] = useState(false);
+    const { user } = useAuth();
 
-    const MAX_UNITS = 18;
+    const MAX_UNITS = 24;
     const currentUnits = selectedCourses.reduce((acc, curr) => acc + curr.units, 0);
 
+    useEffect(() => {
+        loadCourses();
+        loadEnrolledCourses();
+    }, [user]);
+
+    const loadCourses = async () => {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('courses')
+                .select('*')
+                .order('code');
+
+            if (error) throw error;
+            setCourseCatalog(data || []);
+        } catch (error) {
+            console.error('Error loading courses:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadEnrolledCourses = async () => {
+        if (!user) return;
+
+        try {
+            // Get student ID first
+            const { data: studentData } = await supabase
+                .from('students')
+                .select('id')
+                .eq('user_id', user.id)
+                .single();
+
+            if (!studentData) return;
+
+            // Get enrolled courses
+            const { data: enrollments } = await supabase
+                .from('enrollments')
+                .select('course_id, courses(*)')
+                .eq('student_id', studentData.id)
+                .eq('status', 'enrolled');
+
+            if (enrollments) {
+                const enrolled = enrollments
+                    .map(e => (e as any).courses)
+                    .filter(Boolean);
+                setSelectedCourses(enrolled);
+            }
+        } catch (error) {
+            console.error('Error loading enrolled courses:', error);
+        }
+    };
+
+    const handleEnrollment = async () => {
+        if (!user || selectedCourses.length === 0) return;
+
+        setEnrolling(true);
+        try {
+            // Get student ID
+            const { data: studentData, error: studentError } = await supabase
+                .from('students')
+                .select('id')
+                .eq('user_id', user.id)
+                .single();
+
+            if (studentError || !studentData) {
+                alert('Please complete your profile first in the Profile section.');
+                return;
+            }
+
+            // Prepare enrollment records
+            const enrollments = selectedCourses.map(course => ({
+                student_id: studentData.id,
+                course_id: course.id,
+                semester: 'Spring 2026',
+                status: 'enrolled'
+            }));
+
+            // Insert or update enrollments
+            const { error } = await supabase
+                .from('enrollments')
+                .upsert(enrollments, {
+                    onConflict: 'student_id,course_id,semester'
+                });
+
+            if (error) throw error;
+
+            alert(`Successfully enrolled in ${selectedCourses.length} course(s)!`);
+        } catch (error: any) {
+            console.error('Error enrolling:', error);
+            alert('Error enrolling in courses: ' + error.message);
+        } finally {
+            setEnrolling(false);
+        }
+    };
+
     const toggleCourse = (course: Course) => {
-        if (selectedCourses.find(c => c.code === course.code)) {
-            setSelectedCourses(selectedCourses.filter(c => c.code !== course.code));
+        if (selectedCourses.find(c => c.id === course.id)) {
+            setSelectedCourses(selectedCourses.filter(c => c.id !== course.id));
         } else {
             if (currentUnits + course.units > MAX_UNITS) {
                 alert(`Cannot add ${course.code}. Maximum credit limit (${MAX_UNITS}) exceeded.`);
@@ -48,8 +142,20 @@ export default function StudentRegistration() {
 
     const filteredCourses = courseCatalog.filter(course =>
         course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.code.toLowerCase().includes(searchTerm.toLowerCase())
+        course.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        course.department.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading courses...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex min-h-screen bg-[#f8f9fc] text-gray-900 font-[sans-serif] overflow-hidden relative selection:bg-red-100 selection:text-red-900">
@@ -124,41 +230,52 @@ export default function StudentRegistration() {
 
                         {/* Course List */}
                         <div className="space-y-4">
-                            {filteredCourses.map(course => {
-                                const isSelected = selectedCourses.find(c => c.code === course.code);
-                                return (
-                                    <div key={course.code} className={`p-6 rounded-2xl border transition-all duration-300 group ${isSelected ? 'bg-red-50/40 border-red-200 shadow-lg shadow-red-500/5' : 'bg-white/60 backdrop-blur-md border-white/60 hover:bg-white hover:shadow-xl hover:shadow-gray-200/40'}`}>
-                                        <div className="flex justify-between items-start">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <span className="font-bold text-lg text-gray-900">{course.code}</span>
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{course.units} Units</span>
-                                                </div>
-                                                <h3 className="font-bold text-gray-800 mb-2 text-lg">{course.title}</h3>
-                                                <p className="text-sm text-gray-500 mb-4 line-clamp-1 font-medium">{course.description}</p>
+                            {filteredCourses.length === 0 ? (
+                                <div className="text-center py-12 bg-white/60 backdrop-blur-md rounded-2xl border border-white/60">
+                                    <BookOpen size={48} className="mx-auto text-gray-300 mb-4" />
+                                    <p className="text-gray-500 font-medium">No courses found</p>
+                                    <p className="text-sm text-gray-400 mt-2">Try adjusting your search</p>
+                                </div>
+                            ) : (
+                                filteredCourses.map(course => {
+                                    const isSelected = selectedCourses.find(c => c.id === course.id);
+                                    return (
+                                        <div key={course.id} className={`p-6 rounded-2xl border transition-all duration-300 group ${isSelected ? 'bg-red-50/40 border-red-200 shadow-lg shadow-red-500/5' : 'bg-white/60 backdrop-blur-md border-white/60 hover:bg-white hover:shadow-xl hover:shadow-gray-200/40'}`}>
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <span className="font-bold text-lg text-gray-900">{course.code}</span>
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{course.units} Units</span>
+                                                    </div>
+                                                    <h3 className="font-bold text-gray-800 mb-2 text-lg">{course.title}</h3>
 
-                                                <div className="flex items-center gap-6 text-xs font-medium text-gray-500">
-                                                    <div className="flex items-center gap-2">
-                                                        <Users size={14} className="text-gray-400" />
-                                                        {course.lecturer}
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Clock size={14} className="text-gray-400" />
-                                                        {course.time}
+                                                    <div className="flex items-center gap-6 text-xs font-medium text-gray-500 mt-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <Info size={14} className="text-gray-400" />
+                                                            {course.department}
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <GraduationCap size={14} className="text-gray-400" />
+                                                            {course.level} Level
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Calendar size={14} className="text-gray-400" />
+                                                            {course.semester}
+                                                        </div>
                                                     </div>
                                                 </div>
+
+                                                <button
+                                                    onClick={() => toggleCourse(course)}
+                                                    className={`flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-300 ${isSelected ? 'bg-red-100 text-red-600 hover:bg-red-200 rotate-90' : 'bg-gray-900 text-white hover:bg-red-600 hover:scale-110 shadow-lg shadow-gray-900/20 hover:shadow-red-500/30'}`}
+                                                >
+                                                    {isSelected ? <X size={20} strokeWidth={3} /> : <Plus size={20} strokeWidth={3} />}
+                                                </button>
                                             </div>
-
-                                            <button
-                                                onClick={() => toggleCourse(course)}
-                                                className={`flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-300 ${isSelected ? 'bg-red-100 text-red-600 hover:bg-red-200 rotate-90' : 'bg-gray-900 text-white hover:bg-red-600 hover:scale-110 shadow-lg shadow-gray-900/20 hover:shadow-red-500/30'}`}
-                                            >
-                                                {isSelected ? <X size={20} strokeWidth={3} /> : <Plus size={20} strokeWidth={3} />}
-                                            </button>
                                         </div>
-                                    </div>
-                                )
-                            })}
+                                    )
+                                })
+                            )}
                         </div>
                     </div>
 
@@ -195,10 +312,10 @@ export default function StudentRegistration() {
                                     </div>
                                 ) : (
                                     selectedCourses.map(course => (
-                                        <div key={course.code} className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-100 shadow-sm group hover:border-red-100 transition-colors">
+                                        <div key={course.id} className="flex justify-between items-center bg-white p-4 rounded-xl border border-gray-100 shadow-sm group hover:border-red-100 transition-colors">
                                             <div>
                                                 <div className="text-sm font-bold text-gray-900">{course.code}</div>
-                                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{course.title}</div>
+                                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider line-clamp-1">{course.title}</div>
                                             </div>
                                             <button title="Remove course" onClick={() => toggleCourse(course)} className="text-gray-300 hover:text-red-600 transition-colors p-1 hover:bg-red-50 rounded-lg">
                                                 <X size={16} />
@@ -209,16 +326,17 @@ export default function StudentRegistration() {
                             </div>
 
                             <button
-                                disabled={selectedCourses.length === 0}
+                                onClick={handleEnrollment}
+                                disabled={selectedCourses.length === 0 || enrolling}
                                 className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl shadow-lg shadow-red-500/30 hover:shadow-red-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                             >
-                                Register Selected
+                                {enrolling ? 'Processing...' : 'Register Selected Courses'}
                                 <CheckCircle2 size={20} />
                             </button>
 
-                            <div className="mt-6 flex gap-3 p-4 bg-red-50/50 border border-red-100 rounded-2xl text-xs font-medium text-red-700 items-start">
+                            <div className="mt-6 flex gap-3 p-4 bg-blue-50/50 border border-blue-100 rounded-2xl text-xs font-medium text-blue-700 items-start">
                                 <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                                Registration closes on Oct 15th. Ensure you speak with your advisor before finalizing.
+                                You can modify your course selection anytime before the semester starts. Maximum {MAX_UNITS} units allowed.
                             </div>
                         </div>
 
