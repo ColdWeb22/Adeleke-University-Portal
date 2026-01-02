@@ -1,10 +1,12 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
     Bell, Search, Plus, MoreVertical, Clock, Calendar, 
     BarChart2, Book, FileText, Settings, LayoutDashboard, 
     Folder, Zap, Target, Award, ChevronRight 
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 // Interfaces for Data Types
 interface Assignment {
@@ -25,19 +27,54 @@ interface Announcement {
     timeAgo: string;
 }
 
-// Dummy Data
-const assignments: Assignment[] = [
-    { id: '1', course: 'Physics 101', courseCode: 'PHY101', title: 'Lab Report 4', dueDate: 'Tomorrow, 11:59 PM', status: 'In Progress', color: 'text-red-600' },
-    { id: '2', course: 'History 202', courseCode: 'HIS202', title: 'Midterm Essay', dueDate: 'Fri, Oct 24', status: 'Not Started', color: 'text-orange-600' },
-    { id: '3', course: 'CS 101', courseCode: 'CS101', title: 'Sorting Algorithms', dueDate: 'Mon, Oct 27', status: 'Submitted', color: 'text-green-600' },
-];
-
-const announcements: Announcement[] = [
-    { id: '1', type: 'Alert', title: 'Library Maintenance', description: 'The main library portal will be down for scheduled maintenance tonight.', timeAgo: '2h ago' },
-    { id: '2', type: 'Event', title: 'Fall Career Fair', description: 'Register now for the upcoming career fair at the Student Center.', timeAgo: 'Yesterday' },
-];
+interface StudentData {
+    matric_number: string;
+    department: string;
+    level: number;
+    cgpa: number;
+    total_credits: number;
+}
 
 export default function StudentDashboard() {
+    const { profile } = useAuth();
+    const [studentData, setStudentData] = useState<StudentData | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchStudentData = async () => {
+            if (!profile?.id) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from('students')
+                    .select('*')
+                    .eq('user_id', profile.id)
+                    .single();
+
+                if (error) throw error;
+                setStudentData(data);
+            } catch (error) {
+                console.error('Error fetching student data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchStudentData();
+    }, [profile?.id]);
+
+    // Dummy Data (to be replaced with real data)
+    const assignments: Assignment[] = [
+        { id: '1', course: 'Physics 101', courseCode: 'PHY101', title: 'Lab Report 4', dueDate: 'Tomorrow, 11:59 PM', status: 'In Progress', color: 'text-red-600' },
+        { id: '2', course: 'History 202', courseCode: 'HIS202', title: 'Midterm Essay', dueDate: 'Fri, Oct 24', status: 'Not Started', color: 'text-orange-600' },
+        { id: '3', course: 'CS 101', courseCode: 'CS101', title: 'Sorting Algorithms', dueDate: 'Mon, Oct 27', status: 'Submitted', color: 'text-green-600' },
+    ];
+
+    const announcements: Announcement[] = [
+        { id: '1', type: 'Alert', title: 'Library Maintenance', description: 'The main library portal will be down for scheduled maintenance tonight.', timeAgo: '2h ago' },
+        { id: '2', type: 'Event', title: 'Fall Career Fair', description: 'Register now for the upcoming career fair at the Student Center.', timeAgo: 'Yesterday' },
+    ];
+
     return (
         <div className="flex min-h-screen bg-[#f8f9fc] text-gray-900 font-[sans-serif] selection:bg-red-100 selection:text-red-900">
             
@@ -67,11 +104,11 @@ export default function StudentDashboard() {
                             <div className="absolute top-0 right-0 w-20 h-20 bg-red-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-red-500/10 transition-all"></div>
                             <div className="flex items-center gap-3 relative z-10">
                                 <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden ring-2 ring-white shadow-sm">
-                                    <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="User" className="w-full h-full object-cover" />
+                                    <img src={profile?.avatar_url || "https://i.pravatar.cc/150?u=a042581f4e29026704d"} alt="User" className="w-full h-full object-cover" />
                                 </div>
                                 <div>
-                                    <div className="text-sm font-bold text-gray-900">Alex Morgan</div>
-                                    <div className="text-[10px] text-gray-500 font-medium">Computer Science</div>
+                                    <div className="text-sm font-bold text-gray-900">{profile?.full_name || 'Student'}</div>
+                                    <div className="text-[10px] text-gray-500 font-medium">{studentData?.department || 'Loading...'}</div>
                                 </div>
                             </div>
                         </div>
@@ -92,7 +129,7 @@ export default function StudentDashboard() {
                 <header className="flex justify-between items-center mb-10">
                     <div>
                         <h2 className="text-3xl font-bold tracking-tight text-gray-900">Dashboard</h2>
-                        <p className="text-gray-500 text-sm mt-1">Welcome back, ready to learn?</p>
+                        <p className="text-gray-500 text-sm mt-1">Welcome back, {profile?.full_name?.split(' ')[0] || 'Student'}!</p>
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="relative group">
@@ -158,17 +195,24 @@ export default function StudentDashboard() {
                                 </div>
                                 <span className="text-sm font-bold text-gray-500 uppercase tracking-wider">GPA Score</span>
                             </div>
-                            <div className="text-5xl font-bold text-gray-900 tracking-tighter">3.8</div>
-                            <div className="text-sm text-gray-500 mt-1">Top 5% of class</div>
+                            <div className="text-5xl font-bold text-gray-900 tracking-tighter">
+                                {studentData?.cgpa ? studentData.cgpa.toFixed(2) : '0.00'}
+                            </div>
+                            <div className="text-sm text-gray-500 mt-1">
+                                {studentData?.level ? `Level ${studentData.level}` : 'Loading...'}
+                            </div>
                         </div>
 
                         <div className="mt-8">
                             <div className="flex justify-between text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">
                                 <span>Progress</span>
-                                <span>42/120 Credits</span>
+                                <span>{studentData?.total_credits || 0}/120 Credits</span>
                             </div>
                             <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                                <div className="bg-gradient-to-r from-red-500 to-red-600 h-full rounded-full w-[35%] shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
+                                <div 
+                                    className="bg-gradient-to-r from-red-500 to-red-600 h-full rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]"
+                                    style={{ width: `${((studentData?.total_credits || 0) / 120) * 100}%` }}
+                                ></div>
                             </div>
                         </div>
                     </div>
