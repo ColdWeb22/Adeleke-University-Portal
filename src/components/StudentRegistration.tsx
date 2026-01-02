@@ -54,13 +54,13 @@ export default function StudentRegistration() {
 
         try {
             // Get student ID first
-            const { data: studentData } = await supabase
+            const { data: studentData, error: studentError } = await supabase
                 .from('students')
                 .select('id')
                 .eq('user_id', user.id)
-                .single();
+                .single() as { data: { id: string } | null; error: any };
 
-            if (!studentData) return;
+            if (studentError || !studentData) return;
 
             // Get enrolled courses
             const { data: enrollments } = await supabase
@@ -95,7 +95,7 @@ export default function StudentRegistration() {
                 .from('students')
                 .select('id')
                 .eq('user_id', user.id)
-                .single();
+                .single() as { data: { id: string } | null; error: any };
 
             if (studentError || !studentData) {
                 alert('Please complete your profile first in the Profile section.');
