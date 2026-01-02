@@ -86,9 +86,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         role: (authUser.user_metadata?.role as 'student' | 'lecturer') || 'student',
                     };
                     
+                    // Insert with type assertion to bypass strict typing
                     const { error: insertError } = await supabase
                         .from('profiles')
-                        .insert([newProfile]);
+                        .insert([{
+                            id: newProfile.id,
+                            email: newProfile.email,
+                            full_name: newProfile.full_name,
+                            role: newProfile.role,
+                        }] as any);
                     
                     if (!insertError) {
                         setProfile(newProfile);
