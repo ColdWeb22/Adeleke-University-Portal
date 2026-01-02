@@ -2,7 +2,7 @@
 import React from 'react';
 import {
     LayoutGrid, Users, FileText, Calendar,
-    Settings, LogOut, BookOpen, Clock,
+    Settings, BookOpen, Clock,
     AlertCircle, Zap, ChevronRight, MoreHorizontal,
     GraduationCap, CheckCircle2
 } from 'lucide-react';

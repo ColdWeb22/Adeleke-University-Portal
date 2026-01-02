@@ -2,7 +2,7 @@
 
 
 import LoginCard from './Login';
-import { BookOpen, Calendar, Users, ArrowRight, Zap } from 'lucide-react';
+import { BookOpen, Calendar, Users, Zap } from 'lucide-react';
 
 export default function Hero() {
     return (

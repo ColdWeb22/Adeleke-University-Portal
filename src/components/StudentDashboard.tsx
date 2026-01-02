@@ -3,7 +3,7 @@ import React from 'react';
 import { 
     Bell, Search, Plus, MoreVertical, Clock, Calendar, 
     BarChart2, Book, FileText, Settings, LayoutDashboard, 
-    Folder, MessageSquare, Zap, Target, Award, ChevronRight 
+    Folder, Zap, Target, Award, ChevronRight 
 } from 'lucide-react';
 
 // Interfaces for Data Types

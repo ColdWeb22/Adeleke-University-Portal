@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (!data) {
                 const { data: { user: authUser } } = await supabase.auth.getUser();
                 if (authUser) {
-                    const newProfile = {
+                    const newProfile: UserProfile = {
                         id: authUser.id,
                         email: authUser.email || '',
                         full_name: authUser.user_metadata?.full_name || 'User',
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     
                     const { error: insertError } = await supabase
                         .from('profiles')
-                        .insert(newProfile);
+                        .insert([newProfile]);
                     
                     if (!insertError) {
                         setProfile(newProfile);
